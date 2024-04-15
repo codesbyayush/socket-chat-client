@@ -127,6 +127,7 @@ function SendMessageUi({
   const [message, setMessage] = useState("");
   const { email: loggedInUser } = useLoggedInUserData();
   const { addMessage } = useSentMessages();
+  const [myStream, setMyStream] = useState<MediaStream | null>();
 
   const router = useRouter();
 
@@ -139,7 +140,6 @@ function SendMessageUi({
     setMessage("");
   };
   const call = () => {
-    // router.push("/room");
     socket.emit("room:join", { email: loggedInUser, room: 1 });
   };
 
@@ -161,7 +161,12 @@ function SendMessageUi({
           console.log(state);
           if (!state) {
             peer.closeConn();
+            if (!peer || !peer.peer || !myStream) return;
+            for (const track of myStream.getTracks()) {
+              track.stop();
+            }
           }
+
           socket.emit("room:leave");
         }}
       >
@@ -169,28 +174,12 @@ function SendMessageUi({
           <span onClick={call}>Call</span>
         </DialogTrigger>
         <DialogContent>
-          {/* <DialogHeader>
-            <DialogTitle>Are you absolutely sure?</DialogTitle>
-            <DialogDescription>
-              This action cannot be undone. This will permanently delete your
-              account and remove your data from our servers.
-            </DialogDescription>
-          </DialogHeader> */}
-          <RoomPage />
+          <RoomPage myStream={myStream} setMyStream={setMyStream} />
         </DialogContent>
       </Dialog>
     </>
   );
 }
-
-/* <Button className="flex-1" variant="outline">
-        <SmileIcon className="w-4 h-4 mr-2" />
-        Emoji
-      </Button>
-      <Button className="flex-1" variant="outline">
-        <ImageIcon className="w-4 h-4 mr-2" />
-        Image
-      </Button> */
 
 function SmileIcon(props: any) {
   return (

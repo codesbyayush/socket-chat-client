@@ -5,15 +5,25 @@ import ReactPlayer from "react-player";
 import peer from "@/service/peer";
 import { socket } from "@/socket";
 
-const RoomPage = () => {
-  const [remoteSocketId, setRemoteSocketId] = useState(null);
-  const [myStream, setMyStream] = useState();
-  const [remoteStream, setRemoteStream] = useState();
+const RoomPage = ({
+  myStream,
+  setMyStream,
+}: {
+  myStream: MediaStream | null | undefined;
+  setMyStream: React.Dispatch<
+    React.SetStateAction<MediaStream | null | undefined>
+  >;
+}) => {
+  const [remoteSocketId, setRemoteSocketId] = useState<string | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>();
 
-  const handleUserJoined = useCallback(({ email, id }) => {
-    console.log(`Email ${email} joined room`);
-    setRemoteSocketId(id);
-  }, []);
+  const handleUserJoined = useCallback(
+    ({ email, id }: { email: string; id: string }) => {
+      console.log(`Email ${email} joined room`);
+      setRemoteSocketId(id);
+    },
+    []
+  );
 
   const handleCallUser = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -26,7 +36,13 @@ const RoomPage = () => {
   }, [remoteSocketId, socket]);
 
   const handleIncommingCall = useCallback(
-    async ({ from, offer }) => {
+    async ({
+      from,
+      offer,
+    }: {
+      offer: RTCSessionDescriptionInit;
+      from: string;
+    }) => {
       setRemoteSocketId(from);
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -41,13 +57,14 @@ const RoomPage = () => {
   );
 
   const sendStreams = useCallback(() => {
+    if (!peer || !peer.peer || !myStream) return;
     for (const track of myStream.getTracks()) {
       peer.peer.addTrack(track, myStream);
     }
   }, [myStream]);
 
   const handleCallAccepted = useCallback(
-    ({ from, ans }) => {
+    ({ from, ans }: { ans: RTCSessionDescriptionInit; from: string }) => {
       peer.setLocalDescription(ans);
       console.log("Call Accepted!");
       sendStreams();
@@ -61,30 +78,47 @@ const RoomPage = () => {
   }, [remoteSocketId, socket]);
 
   useEffect(() => {
+    if (peer.peer === null) return;
     peer.peer.addEventListener("negotiationneeded", handleNegoNeeded);
     return () => {
-      peer.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
+      if (peer.peer)
+        peer.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
     };
   }, [handleNegoNeeded]);
 
   const handleNegoNeedIncomming = useCallback(
-    async ({ from, offer }) => {
+    async ({
+      from,
+      offer,
+    }: {
+      offer: RTCSessionDescriptionInit;
+      from: string;
+    }) => {
       const ans = await peer.getAnswer(offer);
       socket.emit("peer:nego:done", { to: from, ans });
     },
     [socket]
   );
 
-  const handleNegoNeedFinal = useCallback(async ({ ans }) => {
-    await peer.setLocalDescription(ans);
-  }, []);
+  const handleNegoNeedFinal = useCallback(
+    async ({ ans }: { ans: RTCSessionDescriptionInit }) => {
+      await peer.setLocalDescription(ans);
+    },
+    []
+  );
 
   useEffect(() => {
+    if (peer.peer === null) return;
+
     peer.peer.addEventListener("track", async (ev) => {
       const remoteStream = ev.streams;
       console.log("GOT TRACKS!!");
       setRemoteStream(remoteStream[0]);
     });
+
+    return () => {
+      if (peer.peer) peer.peer.removeEventListener("track", () => {});
+    };
   }, []);
 
   useEffect(() => {

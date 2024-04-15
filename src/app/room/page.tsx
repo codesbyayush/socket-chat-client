@@ -2,11 +2,13 @@
 
 import { useSearchParams } from "next/navigation";
 import RoomPage from "./compo";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { socket } from "@/socket";
 import { useLoggedInUserData } from "@/stores/chat-store";
 
 export default function Page() {
+  const [myStream, setMyStream] = useState<MediaStream | null>();
+
   const { email } = useLoggedInUserData();
   useEffect(() => {
     socket.emit("room:join", { email, room: 1 });
@@ -14,7 +16,7 @@ export default function Page() {
 
   return (
     <div>
-      <RoomPage />
+      <RoomPage myStream={myStream} setMyStream={setMyStream} />
     </div>
   );
 }
